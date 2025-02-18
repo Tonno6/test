@@ -8,47 +8,73 @@ $password = "password";
 header('Content-Type: application/json');
 
 try {
-    // Connessione al database usando MySQLi
     $mysqli = new mysqli($host, $username, $password, $dbname, $port);
 
-    // Verifica se la connessione è riuscita
     if ($mysqli->connect_error) {
         throw new Exception("Connection failed: " . $mysqli->connect_error);
     }
 
-    // Controllo che ci sia una richiesta POST
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        // Leggi i dati JSON dalla richiesta
         $inputData = json_decode(file_get_contents('php://input'), true);
 
         if (isset($inputData['avatars']) && is_array($inputData['avatars'])) {
-            // Preparazione della query SQL
-            $stmt = $mysqli->prepare("INSERT INTO avatars (IdAvatar, GUID, ImagePath) VALUES (?, ?, ?)");
-
-            // Ciclo per ogni avatar e inserimento dei dati
-            foreach ($inputData['avatars'] as $avatar) {
-                $stmt->bind_param("iss", $avatar['IdAvatar'], $avatar['GUID'], $avatar['ImagePath']);
-                $stmt->execute();
+            // Prepara statement per verificare esistenza
+            $checkStmt = $mysqli->prepare("SELECT IdAvatar FROM avatars WHERE IdAvatar = ?");
+            if (!$checkStmt) {
+                throw new Exception("Prepare check failed: " . $mysqli->error);
             }
 
-            // Risposta success
-            echo json_encode(["status" => "success", "message" => "Avatars inserted successfully"]);
+            // Prepara statement per inserimento
+            $insertStmt = $mysqli->prepare("INSERT INTO avatars (IdAvatar, GUID, ImagePath) VALUES (?, ?, ?)");
+            if (!$insertStmt) {
+                throw new Exception("Prepare insert failed: " . $mysqli->error);
+            }
+
+            $inserted = 0;
+            $skipped = 0;
+
+            foreach ($inputData['avatars'] as $avatar) {
+                $id = $avatar['IdAvatar'];
+                $guid = $avatar['GUID'];
+                $imagePath = $avatar['ImagePath'];
+
+                // Controlla se l'avatar esiste già
+                $checkStmt->bind_param("i", $id);
+                if (!$checkStmt->execute()) {
+                    throw new Exception("Check execution failed: " . $checkStmt->error);
+                }
+                $result = $checkStmt->get_result();
+                
+                if ($result->num_rows === 0) {
+                    // Inserisce se non esiste
+                    $insertStmt->bind_param("iss", $id, $guid, $imagePath);
+                    if (!$insertStmt->execute()) {
+                        throw new Exception("Insert execution failed: " . $insertStmt->error);
+                    }
+                    $inserted++;
+                } else {
+                    $skipped++;
+                }
+            }
+
+            $checkStmt->close();
+            $insertStmt->close();
+
+            echo json_encode([
+                "status" => "success",
+                "message" => "Avatars processed",
+                "inserted" => $inserted,
+                "skipped" => $skipped
+            ]);
         } else {
-            // Risposta errore
             echo json_encode(["status" => "error", "message" => "Invalid input format"]);
         }
-
-        // Chiudi la preparazione della query
-        $stmt->close();
     } else {
-        // Risposta errore se non è una richiesta POST
         echo json_encode(["status" => "error", "message" => "Only POST requests are allowed"]);
     }
 
-    // Chiudi la connessione al database
     $mysqli->close();
 } catch (Exception $e) {
-    // Risposta errore di connessione al DB
     echo json_encode(["status" => "error", "message" => "Database error: " . $e->getMessage()]);
 }
 ?>
