@@ -1,46 +1,41 @@
 <?php
-$host = "5.157.103.206"; // IP della VM
-$port = 3306;
-$dbname = "unitydb";
-$username = "user";
-$password = "0";
+include_once "/var/www/private/utils/config.php";  // Includi il file di configurazione
+include_once SCRIPTS_PATH . "utils/config.php";     // Includi la configurazione aggiuntiva
 
-header('Content-Type: application/json');
+function aggiungiAvatar($avatars)
+{
+    $host = "5.157.103.206"; // IP della VM
+    $port = 3306;
+    $dbname = "unitydb";
+    $username = "user";
+    $password = "0";
 
-try {
     // Connessione al database
-    $pdo = new PDO("mysql:host=$host;port=$prot,dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $conn = new mysqli($host, $username, $password, $dbname, $port);
 
-    // Controllo che ci sia una richiesta POST
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        // Leggi i dati JSON dalla richiesta
-        $inputData = json_decode(file_get_contents('php://input'), true);
-
-        if (isset($inputData['avatars']) && is_array($inputData['avatars'])) {
-            // Preparazione della query SQL
-            $stmt = $pdo->prepare("INSERT INTO avatars (IdAvatar, GUID, ImagePath) VALUES (:IdAvatar, :GUID, :ImagePath)");
-
-            // Ciclo per ogni avatar e inserimento dei dati
-            foreach ($inputData['avatars'] as $avatar) {
-                $stmt->bindParam(':IdAvatar', $avatar['IdAvatar']);
-                $stmt->bindParam(':GUID', $avatar['GUID']);
-                $stmt->bindParam(':ImagePath', $avatar['ImagePath']);
-                $stmt->execute();
-            }
-
-            // Risposta success
-            echo json_encode(["status" => "success", "message" => "Avatars inserted successfully"]);
-        } else {
-            // Risposta errore
-            echo json_encode(["status" => "error", "message" => "Invalid input format"]);
-        }
-    } else {
-        // Risposta errore se non è una richiesta POST
-        echo json_encode(["status" => "error", "message" => "Only POST requests are allowed"]);
+    // Controlla se la connessione ha avuto successo
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
     }
-} catch (PDOException $e) {
-    // Risposta errore di connessione al DB
-    echo json_encode(["status" => "error", "message" => "Database error: " . $e->getMessage()]);
+
+    // Ciclo per ogni avatar
+    foreach ($avatars as $avatar) {
+        // Preparazione della query SQL
+        $stmt = $conn->prepare("INSERT INTO avatars (IdAvatar, GUID, ImagePath) VALUES (?, ?, ?)");
+        $stmt->bind_param('iss', $avatar['IdAvatar'], $avatar['GUID'], $avatar['ImagePath']);
+
+        // Esegui la query
+        if (!$stmt->execute()) {
+            echo json_encode(["status" => "error", "message" => "Failed to insert avatar: " . $stmt->error]);
+            $conn->close();
+            exit();
+        }
+    }
+
+    // Risposta success
+    echo json_encode(["status" => "success", "message" => "Avatars inserted successfully"]);
+
+    // Chiudi la connessione
+    $conn->close();
 }
 ?>
