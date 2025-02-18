@@ -1,14 +1,15 @@
 <?php
-$host = "VM_IP"; // IP della VM
+$host = "5.157.103.206"; // IP della VM
+$port = 3306;
 $dbname = "unitydb";
-$username = "unity_user";
-$password = "password";
+$username = "user";
+$password = "0";
 
 header('Content-Type: application/json');
 
 try {
     // Connessione al database
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $pdo = new PDO("mysql:host=$host;port=$prot,dbname=$dbname", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Controllo che ci sia una richiesta POST
