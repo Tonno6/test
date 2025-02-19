@@ -1,50 +1,89 @@
 <?php
-$host = "5.157.103.206"; // IP della VM
-$port = 3306; // Porta del database
+$host = "VM_IP"; // IP della VM
+$port = 3306;
 $dbname = "unitydb";
-$username = "user";
-$password = "0";
+$username = "unity_user";
+$password = "password";
 
 header('Content-Type: application/json');
-header('Content-Disposition: attachment; filename="avatars_export.json"'); // Forza il download del file
 
 try {
-    // Connessione al database
     $mysqli = new mysqli($host, $username, $password, $dbname, $port);
 
     if ($mysqli->connect_error) {
         throw new Exception("Connection failed: " . $mysqli->connect_error);
     }
 
-    // Query per ottenere tutti i dati dalla tabella avatars
-    $query = "SELECT IdAvatar, GUID, ImagePath FROM avatars";
-    $result = $mysqli->query($query);
+    if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+        // Controlla se è stato fornito un ID specifico
+        $avatarId = isset($_GET['id']) ? intval($_GET['id']) : null;
+        
+        if ($avatarId !== null) {
+            // Query per un avatar specifico
+            $stmt = $mysqli->prepare("SELECT IdAvatar, GUID, ImagePath FROM avatars WHERE IdAvatar = ?");
+            $stmt->bind_param("i", $avatarId);
+        } else {
+            // Query per tutti gli avatar
+            $stmt = $mysqli->prepare("SELECT IdAvatar, GUID, ImagePath FROM avatars");
+        }
 
-    if (!$result) {
-        throw new Exception("Query failed: " . $mysqli->error);
+        if (!$stmt->execute()) {
+            throw new Exception("Query execution failed: " . $stmt->error);
+        }
+
+        $result = $stmt->get_result();
+        $avatars = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $imagePath = $row['ImagePath'];
+            
+            // Verifica se il file esiste
+            if (file_exists($imagePath)) {
+                // Leggi l'immagine e convertila in base64
+                $imageData = base64_encode(file_get_contents($imagePath));
+                
+                $avatars[] = [
+                    'IdAvatar' => $row['IdAvatar'],
+                    'GUID' => $row['GUID'],
+                    'ImagePath' => $row['ImagePath'],
+                    'ImageBase64' => 'data:image/png;base64,' . $imageData
+                ];
+            } else {
+                // Se l'immagine non esiste, includi solo i dati dell'avatar senza l'immagine
+                $avatars[] = [
+                    'IdAvatar' => $row['IdAvatar'],
+                    'GUID' => $row['GUID'],
+                    'ImagePath' => $row['ImagePath'],
+                    'error' => 'Image file not found'
+                ];
+            }
+        }
+
+        $stmt->close();
+
+        if (empty($avatars)) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "No avatars found"
+            ]);
+        } else {
+            echo json_encode([
+                "status" => "success",
+                "avatars" => $avatars
+            ]);
+        }
+    } else {
+        echo json_encode([
+            "status" => "error",
+            "message" => "Only GET requests are allowed"
+        ]);
     }
 
-    // Estrai i dati e formattali come array associativo
-    $data = [];
-    while ($row = $result->fetch_assoc()) {
-        $data[] = $row;
-    }
-
-    // Converti l'array in JSON
-    $jsonData = json_encode($data, JSON_PRETTY_PRINT);
-
-    // Verifica se la conversione JSON ha avuto successo
-    if ($jsonData === false) {
-        throw new Exception("JSON encoding failed: " . json_last_error_msg());
-    }
-
-    // Output del JSON
-    echo $jsonData;
-
-    // Chiudi la connessione al database
     $mysqli->close();
 } catch (Exception $e) {
-    // In caso di errore, restituisci un messaggio di errore
-    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+    echo json_encode([
+        "status" => "error",
+        "message" => "Error: " . $e->getMessage()
+    ]);
 }
 ?>
