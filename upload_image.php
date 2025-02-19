@@ -12,34 +12,54 @@ function saveBase64Image($base64String, $outputFile) {
     file_put_contents($outputFile, $data);
 }
 
-// Percorso del file JSON
-$jsonFile = 'input.json';
+header('Content-Type: application/json');
 
-// Leggi il file JSON
-$jsonData = file_get_contents($jsonFile);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Leggi il contenuto della richiesta POST
+    $jsonData = file_get_contents('php://input');
+    $data = json_decode($jsonData, true);
 
-// Decodifica il JSON
-$data = json_decode($jsonData, true);
+    // Verifica se la chiave "ImageBase64" esiste nel JSON
+    if (isset($data['ImageBase64'])) {
+        // Estrai la stringa Base64
+        $base64String = $data['ImageBase64'];
+        
+        // Definisci il percorso di output per l'immagine
+        $outputDir = 'upload/';
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0755, true);
+        }
 
-// Verifica se la chiave "ImageBase64" esiste nel JSON
-if (isset($data['ImageBase64'])) {
-    // Estrai la stringa Base64
-    $base64String = $data['ImageBase64'];
-    
-    // Definisci il percorso di output per l'immagine
-    $outputDir = 'images/';
-    if (!is_dir($outputDir)) {
-        mkdir($outputDir, 0755, true);
+        // Genera un nome file univoco con timestamp
+        $timestamp = time();
+        $uniqueId = uniqid();
+        $outputFile = $outputDir . $uniqueId . '.png';
+        
+        try {
+            // Salva l'immagine sul server
+            saveBase64Image($base64String, $outputFile);
+            
+            // Restituisci il percorso dell'immagine
+            echo json_encode([
+                'status' => 'success',
+                'image_path' => $outputFile
+            ]);
+        } catch (Exception $e) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Errore nel salvare l\'immagine: ' . $e->getMessage()
+            ]);
+        }
+    } else {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'ImageBase64 non trovato nel JSON'
+        ]);
     }
-    $outputFile = $outputDir . uniqid() . '.png'; // Usa un nome univoco per l'immagine
-    
-    // Salva l'immagine sul server
-    saveBase64Image($base64String, $outputFile);
-    
-    // Restituisci il percorso dell'immagine
-    echo json_encode(['image_path' => $outputFile]);
 } else {
-    // Se "ImageBase64" non è presente nel JSON
-    echo json_encode(['error' => 'ImageBase64 non trovato nel JSON']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Metodo non consentito. Utilizzare POST'
+    ]);
 }
 ?>
