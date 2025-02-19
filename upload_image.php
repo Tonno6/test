@@ -1,48 +1,45 @@
 <?php
 // Funzione per salvare l'immagine Base64 sul server
 function saveBase64Image($base64String, $outputFile) {
-    // Rimuove il prefisso "data:image/..." dalla stringa Base64
-    list($type, $data) = explode(';', $base64String);
-    list(, $data) = explode(',', $data);
+    list(, $data) = explode(',', $base64String); // Estrae solo i dati Base64
+    $data = base64_decode($data); // Decodifica la stringa Base64
     
-    // Decodifica la stringa Base64
-    $data = base64_decode($data);
+    if ($data === false) {
+        throw new Exception("Errore nella decodifica Base64.");
+    }
     
-    // Salva l'immagine sul server
     file_put_contents($outputFile, $data);
 }
 
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Leggi il contenuto della richiesta POST
     $jsonData = file_get_contents('php://input');
     $data = json_decode($jsonData, true);
 
-    // Verifica se la chiave "ImageBase64" esiste nel JSON
     if (isset($data['ImageBase64'])) {
-        // Estrai la stringa Base64
         $base64String = $data['ImageBase64'];
-        
-        // Definisci il percorso di output per l'immagine
+
+        // Percorso della cartella di upload
         $outputDir = 'upload/';
         if (!is_dir($outputDir)) {
             mkdir($outputDir, 0755, true);
         }
 
-        // Genera un nome file univoco con timestamp
-        $timestamp = time();
+        // Genera un nome file univoco
         $uniqueId = uniqid();
         $outputFile = $outputDir . $uniqueId . '.png';
-        
+
         try {
-            // Salva l'immagine sul server
             saveBase64Image($base64String, $outputFile);
-            
-            // Restituisci il percorso dell'immagine
+
+            // Percorso assoluto del file salvato (opzionale)
+            $absolutePath = realpath($outputFile);
+
             echo json_encode([
                 'status' => 'success',
-                'image_path' => $outputFile
+                'image_path' => $outputFile,  // Percorso relativo
+                'absolute_path' => $absolutePath // Percorso assoluto (solo per debug)
             ]);
         } catch (Exception $e) {
             echo json_encode([
