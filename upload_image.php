@@ -1,24 +1,32 @@
 <?php
 // Funzione per salvare l'immagine Base64 sul server
 function saveBase64Image($base64String, $outputFile) {
-    list(, $data) = explode(',', $base64String); // Estrae solo i dati Base64
-    $data = base64_decode($data); // Decodifica la stringa Base64
+    // Rimuove l'intestazione Base64, se presente (es. "data:image/png;base64,")
+    if (strpos($base64String, ',') !== false) {
+        list(, $base64String) = explode(',', $base64String);
+    }
     
+    // Decodifica la stringa Base64
+    $data = base64_decode($base64String);
     if ($data === false) {
         throw new Exception("Errore nella decodifica Base64.");
     }
     
-    file_put_contents($outputFile, $data);
+    // Scrive i dati binari in un file
+    if (file_put_contents($outputFile, $data) === false) {
+        throw new Exception("Errore nel salvataggio dell'immagine.");
+    }
 }
 
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Legge il corpo della richiesta
     $jsonData = file_get_contents('php://input');
     $data = json_decode($jsonData, true);
 
     if (isset($data['ImageBase64'])) {
-        $base64String = $data['ImageBase64'];
+        $base64String = trim($data['ImageBase64']); // Rimuove eventuali spazi bianchi
 
         // Percorso della cartella di upload
         $outputDir = 'upload/';
@@ -31,20 +39,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $outputFile = $outputDir . $uniqueId . '.png';
 
         try {
+            // Salva l'immagine
             saveBase64Image($base64String, $outputFile);
 
-            // Percorso assoluto del file salvato (opzionale)
+            // Ottieni il percorso assoluto
             $absolutePath = realpath($outputFile);
 
+            // Rispondi con i dettagli del file salvato
             echo json_encode([
                 'status' => 'success',
-                'image_path' => $outputFile,  // Percorso relativo
-                'absolute_path' => $absolutePath // Percorso assoluto (solo per debug)
-            ]);
+                'image_path' => $outputFile, // Percorso relativo
+                'absolute_path' => $absolutePath // Percorso assoluto per debug
+            ], JSON_UNESCAPED_SLASHES);
         } catch (Exception $e) {
             echo json_encode([
                 'status' => 'error',
-                'message' => 'Errore nel salvare l\'immagine: ' . $e->getMessage()
+                'message' => 'Errore: ' . $e->getMessage()
             ]);
         }
     } else {
@@ -60,3 +70,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 }
 ?>
+
