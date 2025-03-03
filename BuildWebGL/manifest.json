@@ -2,7 +2,7 @@
   "name": "AvatarCreatrorRBW",
   "short_name": "AvatarCreator",
   "description": "Un'app WebGL Unity come PWA",
-  "start_url": ".",
+  "start_url": "5.157.103.206/BuildWebGL",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",

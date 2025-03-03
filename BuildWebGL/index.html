@@ -7,8 +7,6 @@
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -126,5 +124,14 @@
       document.body.appendChild(script);
 
     </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js').then((registration) => {
+          console.log('Service Worker registrato con successo:', registration);
+        }).catch((error) => {
+          console.log('Registrazione del Service Worker fallita:', error);
+        });
+      }
+    </script>    
   </body>
 </html>
