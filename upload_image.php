@@ -1,73 +1,79 @@
 <?php
-// Funzione per salvare l'immagine Base64 sul server
+// Function to save the Base64 image to the server
 function saveBase64Image($base64String, $outputFile) {
-    // Rimuove l'intestazione Base64, se presente (es. "data:image/png;base64,")
+    // Remove the Base64 header if present (e.g., "data:image/png;base64,")
     if (strpos($base64String, ',') !== false) {
         list(, $base64String) = explode(',', $base64String);
     }
     
-    // Decodifica la stringa Base64
+    // Decode the Base64 string
     $data = base64_decode($base64String);
     if ($data === false) {
-        throw new Exception("Errore nella decodifica Base64.");
+        throw new Exception("Error decoding Base64.");
     }
     
-    // Scrive i dati binari in un file
+    // Write the binary data to the file
     if (file_put_contents($outputFile, $data) === false) {
-        throw new Exception("Errore nel salvataggio dell'immagine.");
+        throw new Exception("Error saving the image.");
     }
 }
 
+// Set the response header to JSON
 header('Content-Type: application/json');
 
+// Check if the request method is POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Legge il corpo della richiesta
+    // Read the body of the request
     $jsonData = file_get_contents('php://input');
     $data = json_decode($jsonData, true);
 
+    // Check if the 'ImageBase64' key exists in the request data
     if (isset($data['ImageBase64'])) {
-        $base64String = trim($data['ImageBase64']); // Rimuove eventuali spazi bianchi
+        $base64String = trim($data['ImageBase64']); // Remove any leading/trailing whitespace
 
-        // Percorso della cartella di upload
+        // Set the upload directory
         $outputDir = 'upload/';
         if (!is_dir($outputDir)) {
+            // Create the directory if it doesn't exist
             mkdir($outputDir, 0755, true);
         }
 
-        // Genera un nome file univoco
+        // Generate a unique filename
         $uniqueId = uniqid();
         $outputFile = $outputDir . $uniqueId . '.png';
 
         try {
-            // Salva l'immagine
+            // Save the image
             saveBase64Image($base64String, $outputFile);
 
-            // Ottieni il percorso assoluto
+            // Get the absolute file path
             $absolutePath = realpath($outputFile);
 
-            // Rispondi con i dettagli del file salvato
+            // Respond with the file details (relative and absolute paths)
             echo json_encode([
                 'status' => 'success',
-                'image_path' => $outputFile, // Percorso relativo
-                'absolute_path' => $absolutePath // Percorso assoluto per debug
+                'image_path' => $outputFile, // Relative file path
+                'absolute_path' => $absolutePath // Absolute path for debugging
             ], JSON_UNESCAPED_SLASHES);
         } catch (Exception $e) {
+            // Handle errors during image saving
             echo json_encode([
                 'status' => 'error',
-                'message' => 'Errore: ' . $e->getMessage()
+                'message' => 'Error: ' . $e->getMessage()
             ]);
         }
     } else {
+        // If 'ImageBase64' is not found in the input data
         echo json_encode([
             'status' => 'error',
-            'message' => 'ImageBase64 non trovato nel JSON'
+            'message' => 'ImageBase64 not found in JSON'
         ]);
     }
 } else {
+    // If the request method is not POST
     echo json_encode([
         'status' => 'error',
-        'message' => 'Metodo non consentito. Utilizzare POST'
+        'message' => 'Method not allowed. Use POST'
     ]);
 }
 ?>
-
