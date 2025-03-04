@@ -1,9 +1,9 @@
 const cacheName = "DefaultCompany-AvatarCreatrorRBW-0.1.0";
 const contentToCache = [
     "Build/BuildWebGL.loader.js",
-    "Build/BuildWebGL.framework.js.unityweb",
-    "Build/BuildWebGL.data.unityweb",
-    "Build/BuildWebGL.wasm.unityweb",
+    "Build/BuildWebGL.framework.js",
+    "Build/BuildWebGL.data",
+    "Build/BuildWebGL.wasm",
     "TemplateData/style.css"
 
 ];
