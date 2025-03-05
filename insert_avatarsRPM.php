@@ -20,68 +20,49 @@ try {
 
     // Check if the HTTP request method is POST
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        // Get and decode the incoming JSON data
-        $inputData = json_decode(file_get_contents('php://input'), true);
+        // Get values from POST request
+        $idmuseo = $_POST["id_museo"] ?? null;
+        $idtotem = $_POST["id_totem"] ?? null;
+        $urlglb = $_POST["url_glb"] ?? null;
 
-        // Ensure the 'avatars' key exists and is an array
-        if (isset($inputData['avatarRPM']) && is_array($inputData['avatarRPM'])) {
-            // Prepare a statement to check if the avatar already exists in the database
-            $checkStmt = $mysqli->prepare("SELECT url_glb FROM avatarRPM WHERE url_glb = ?");
-            if (!$checkStmt) {
-                throw new Exception("Prepare check failed: " . $mysqli->error);
-            }
+        // Validate input data
+        if ($idmuseo === null || $idtotem === null || $urlglb === null) {
+            echo json_encode(["status" => "error", "message" => "Missing required fields"]);
+            exit;
+        }
 
-            // Prepare a statement to insert a new avatar into the database
+        // Prepare a statement to check if the avatar already exists in the database
+        $checkStmt = $mysqli->prepare("SELECT url_glb FROM avatars WHERE url_glb = ?");
+        if (!$checkStmt) {
+            throw new Exception("Prepare check failed: " . $mysqli->error);
+        }
+        $checkStmt->bind_param("s", $urlglb);
+        if (!$checkStmt->execute()) {
+            throw new Exception("Check execution failed: " . $checkStmt->error);
+        }
+        $result = $checkStmt->get_result();
+
+        // If the avatar does not exist, insert it into the database
+        if ($result->num_rows === 0) {
             $insertStmt = $mysqli->prepare("INSERT INTO avatars (id_museo, id_totem, url_glb) VALUES (?, ?, ?)");
             if (!$insertStmt) {
                 throw new Exception("Prepare insert failed: " . $mysqli->error);
             }
-
-            // Initialize counters for inserted and skipped avatars
-            $inserted = 0;
-            $skipped = 0;
-
-            // Loop through each avatar in the provided data
-            foreach ($inputData['avatars'] as $avatar) {
-                // Extract avatar data
-                $idmuseo = $avatar['id_museo'];
-                $idtotem = $avatar['id_totem'];
-                $urlglb = $avatar['url_glb'];
-
-                // Check if the avatar already exists in the database
-                $checkStmt->bind_param("i", $urlglb);
-                if (!$checkStmt->execute()) {
-                    throw new Exception("Check execution failed: " . $checkStmt->error);
-                }
-                $result = $checkStmt->get_result();
-
-                // If the avatar does not exist, insert it into the database
-                if ($result->num_rows === 0) {
-                    $insertStmt->bind_param("iss", $idmuseo, $idtotem, $urlglb);
-                    if (!$insertStmt->execute()) {
-                        throw new Exception("Insert execution failed: " . $insertStmt->error);
-                    }
-                    $inserted++; // Increment the inserted counter
-                } else {
-                    $skipped++; // Increment the skipped counter
-                }
+            $insertStmt->bind_param("iis", $idmuseo, $idtotem, $urlglb);
+            if (!$insertStmt->execute()) {
+                throw new Exception("Insert execution failed: " . $insertStmt->error);
             }
-
-            // Close the prepared statements
-            $checkStmt->close();
             $insertStmt->close();
-
-            // Return a JSON response with the number of inserted and skipped avatars
-            echo json_encode([
-                "status" => "success",
-                "message" => "Avatars processed",
-                "inserted" => $inserted,
-                "skipped" => $skipped
-            ]);
+            $message = "Avatar inserted successfully";
         } else {
-            // Return an error if the 'avatars' field is missing or invalid
-            echo json_encode(["status" => "error", "message" => "Invalid input format"]);
+            $message = "Avatar already exists";
         }
+        
+        // Close the prepared statement
+        $checkStmt->close();
+
+        // Return a JSON response
+        echo json_encode(["status" => "success", "message" => $message]);
     } else {
         // Return an error if the request method is not POST
         echo json_encode(["status" => "error", "message" => "Only POST requests are allowed"]);
