@@ -26,16 +26,9 @@ try {
         // Ensure the 'avatarsRPM' key exists and is an array
         if (isset($inputData['avatarsRPM']) && is_array($inputData['avatarsRPM'])) {
             // Prepare a statement to check if the avatar already exists in the database
-            $checkStmt = $mysqli->prepare("SELECT id FROM avatarRPM WHERE id_museo = ? AND id_totem = ? AND url_glb = ?");
-            if (!$checkStmt) {
-                throw new Exception("Prepare check failed: " . $mysqli->error);
-            }
-
+            $checkStmt = $mysqli->prepare("SELECT id_avatar FROM avatarRPM WHERE id_museo = ? AND id_totem = ? AND url_glb = ?");
             // Prepare a statement to insert a new avatar into the database
             $insertStmt = $mysqli->prepare("INSERT INTO avatarRPM (id_museo, id_totem, url_glb) VALUES (?, ?, ?)");
-            if (!$insertStmt) {
-                throw new Exception("Prepare insert failed: " . $mysqli->error);
-            }
 
             // Initialize counters for inserted and skipped avatars
             $inserted = 0;
