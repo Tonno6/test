@@ -28,7 +28,7 @@ try {
         $idTotem = isset($_GET['id_totem']) ? $_GET['id_totem'] : null;
 
         // Prepare the SQL query based on provided filters
-        $sql = "SELECT id_avatar, id_museo, id_totem, url_glb FROM avatarRPM";
+        $sql = "SELECT id_avatar, id_museo, id_totem, url_glb, token FROM avatarRPM";
         $conditions = [];
         $params = [];
         $types = "";
@@ -68,7 +68,8 @@ try {
                 'id_avatar' => $row['id_avatar'],
                 'id_museo' => $row['id_museo'],
                 'id_totem' => $row['id_totem'],
-                'url_glb' => $row['url_glb']
+                'url_glb' => $row['url_glb'],
+                'token' => $row['token']
             ];
         }
 

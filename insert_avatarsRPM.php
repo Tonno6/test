@@ -26,9 +26,9 @@ try {
         // Ensure the 'avatarsRPM' key exists and is an array
         if (isset($inputData['avatarsRPM']) && is_array($inputData['avatarsRPM'])) {
             // Prepare a statement to check if the avatar already exists in the database
-            $checkStmt = $mysqli->prepare("SELECT id_avatar FROM avatarRPM WHERE id_museo = ? AND id_totem = ? AND url_glb = ?");
+            $checkStmt = $mysqli->prepare("SELECT id_avatar FROM avatarRPM WHERE id_museo = ? AND id_totem = ? AND url_glb = ? AND token = ?");
             // Prepare a statement to insert a new avatar into the database
-            $insertStmt = $mysqli->prepare("INSERT INTO avatarRPM (id_museo, id_totem, url_glb) VALUES (?, ?, ?)");
+            $insertStmt = $mysqli->prepare("INSERT INTO avatarRPM (id_museo, id_totem, url_glb, token) VALUES (?, ?, ?, ?)");
 
             // Initialize counters for inserted and skipped avatars
             $inserted = 0;
@@ -40,9 +40,10 @@ try {
                 $idMuseo = $avatar['id_museo'];
                 $idTotem = $avatar['id_totem'];
                 $urlGlb = $avatar['url_glb'];
+                $token = $avatar['token'];
 
                 // Check if the avatar already exists in the database
-                $checkStmt->bind_param("sis", $idMuseo, $idTotem, $urlGlb);
+                $checkStmt->bind_param("siss", $idMuseo, $idTotem, $urlGlb, $token);
                 if (!$checkStmt->execute()) {
                     throw new Exception("Check execution failed: " . $checkStmt->error);
                 }
@@ -50,7 +51,7 @@ try {
 
                 // If the avatar does not exist, insert it into the database
                 if ($result->num_rows === 0) {
-                    $insertStmt->bind_param("sis", $idMuseo, $idTotem, $urlGlb);
+                    $insertStmt->bind_param("siss", $idMuseo, $idTotem, $urlGlb, $token);
                     if (!$insertStmt->execute()) {
                         throw new Exception("Insert execution failed: " . $insertStmt->error);
                     }
