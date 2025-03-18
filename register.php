@@ -1,87 +1,97 @@
 <?php
 // Database connection details
-$host = "192.168.0.197";
-$port = 3306;
-$dbname = "unitydb";
-$username = "user";
-$password = "0";
+$host = "192.168.0.197"; // IP address of the VM
+$port = 3306; // Database port (default MySQL port)
+$dbname = "unitydb"; // Database name
+$username = "user"; // Database username
+$password = "0"; // Database password
 
-// Set header for JSON response
+// Set the content type for the response to JSON
 header('Content-Type: application/json');
 
 // Encryption key (for transmission)
 $encryption_key = 'latuachiavesegreta12345678901234';
 
-// Connect to database
-$conn = new mysqli($host, $username, $password, $dbname, $port);
+try {
+    // Attempt to connect to the database
+    $mysqli = new mysqli($host, $username, $password, $dbname, $port);
 
-// Check connection
-if ($conn->connect_error) {
-    die(json_encode([
-        'success' => false,
-        'message' => 'Errore di connessione al database: ' . $conn->connect_error
-    ]));
-}
+    // Check if the connection failed
+    if ($mysqli->connect_error) {
+        throw new Exception("Connection failed: " . $mysqli->connect_error);
+    }
 
-// Get data from POST
-$username = $_POST['username'] ?? '';
-$encrypted_password = $_POST['encrypted_password'] ?? '';
+    // Get data from POST
+    $username = $_POST['username'] ?? '';
+    $encrypted_password = $_POST['encrypted_password'] ?? '';
 
-// Validate input
-if (empty($username) || empty($encrypted_password)) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Username e password sono obbligatori'
-    ]);
-    exit;
-}
+    // Validate input
+    if (empty($username) || empty($encrypted_password)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Username e password sono obbligatori'
+        ]);
+        exit;
+    }
 
-// Prevent SQL injection
-$username = $conn->real_escape_string($username);
+    // Check if username already exists
+    $checkStmt = $mysqli->prepare("SELECT id FROM LoginRPM WHERE username = ?");
+    $checkStmt->bind_param("s", $username);
+    
+    if (!$checkStmt->execute()) {
+        throw new Exception("Check execution failed: " . $checkStmt->error);
+    }
+    
+    $result = $checkStmt->get_result();
 
-// Check if username already exists
-$sql = "SELECT id FROM LoginRPM WHERE username = '$username'";
-$result = $conn->query($sql);
+    if ($result->num_rows > 0) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Username già in uso'
+        ]);
+        $checkStmt->close();
+        $mysqli->close();
+        exit;
+    }
+    
+    $checkStmt->close();
 
-if ($result->num_rows > 0) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Username già in uso'
-    ]);
-    exit;
-}
+    // Decode password from transmission
+    $decrypted_password = decrypt($encrypted_password, $encryption_key);
 
-// Decode password from transmission
-$decrypted_password = decrypt($encrypted_password, $encryption_key);
+    // Hash password for storage
+    $password_hash = password_hash($decrypted_password, PASSWORD_BCRYPT);
 
-// Hash password for storage
-$password_hash = password_hash($decrypted_password, PASSWORD_BCRYPT);
-
-// Insert new user
-$sql = "INSERT INTO LoginRPM (username, password_hash, registration_date) 
-        VALUES ('$username', '$password_hash', NOW())";
-
-if ($conn->query($sql) === TRUE) {
+    // Insert new user
+    $insertStmt = $mysqli->prepare("INSERT INTO LoginRPM (username, password_hash, registration_date) VALUES (?, ?, NOW())");
+    $insertStmt->bind_param("ss", $username, $password_hash);
+    
+    if (!$insertStmt->execute()) {
+        throw new Exception("Insert execution failed: " . $insertStmt->error);
+    }
+    
     // Registration successful
     echo json_encode([
         'success' => true,
         'message' => 'Registrazione completata con successo'
     ]);
-} else {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Errore durante la registrazione: ' . $conn->error
-    ]);
-}
+    
+    // Close the statement
+    $insertStmt->close();
 
-$conn->close();
+    // Close the database connection
+    $mysqli->close();
+} catch (Exception $e) {
+    // Handle any exceptions and return an error message
+    echo json_encode(["status" => "error", "message" => "Database error: " . $e->getMessage()]);
+}
 
 // Function to decode password from transmission
 function decrypt($encrypted_text, $key)
 {
     $encrypted_text = base64_decode($encrypted_text);
     
-    // Extract IV from the beginning of the encrypted text
+    // IV handling from the original register.php
     $iv_size = 16; // AES block size in bytes
     $iv = substr($encrypted_text, 0, $iv_size);
     $encrypted_text = substr($encrypted_text, $iv_size);
