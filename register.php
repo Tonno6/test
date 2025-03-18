@@ -27,45 +27,50 @@ if ($conn->connect_error) {
 $username = $_POST['username'] ?? '';
 $encrypted_password = $_POST['encrypted_password'] ?? '';
 
+// Validate input
+if (empty($username) || empty($encrypted_password)) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Username e password sono obbligatori'
+    ]);
+    exit;
+}
+
 // Prevent SQL injection
 $username = $conn->real_escape_string($username);
+
+// Check if username already exists
+$sql = "SELECT id FROM LoginRPM WHERE username = '$username'";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Username già in uso'
+    ]);
+    exit;
+}
 
 // Decode password from transmission
 $decrypted_password = decrypt($encrypted_password, $encryption_key);
 
-// Query database for password hash
-$sql = "SELECT id, password_hash FROM LoginRPM WHERE username = '$username'";
-$result = $conn->query($sql);
+// Hash password for storage
+$password_hash = password_hash($decrypted_password, PASSWORD_BCRYPT);
 
-if ($result->num_rows > 0) {
-    $user = $result->fetch_assoc();
-    $stored_hash = $user['password_hash'];
+// Insert new user
+$sql = "INSERT INTO LoginRPM (username, password_hash, registration_date) 
+        VALUES ('$username', '$password_hash', NOW())";
 
-    // Verify password with stored hash
-    if (password_verify($decrypted_password, $stored_hash)) {
-        // Login successful - generate session token
-        $token = bin2hex(random_bytes(32));
-
-        // Store token in database (need to add auth_token column to LoginRPM table)
-        $user_id = $user['id'];
-        $sql = "UPDATE LoginRPM SET last_login = NOW() WHERE id = $user_id";
-        $conn->query($sql);
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Login riuscito',
-            'token' => $token
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Password non corretta'
-        ]);
-    }
+if ($conn->query($sql) === TRUE) {
+    // Registration successful
+    echo json_encode([
+        'success' => true,
+        'message' => 'Registrazione completata con successo'
+    ]);
 } else {
     echo json_encode([
         'success' => false,
-        'message' => 'Utente non trovato'
+        'message' => 'Errore durante la registrazione: ' . $conn->error
     ]);
 }
 
@@ -75,7 +80,11 @@ $conn->close();
 function decrypt($encrypted_text, $key)
 {
     $encrypted_text = base64_decode($encrypted_text);
-    $iv = str_repeat("\0", 16);  // 16 bytes of zeros IV
+    
+    // Extract IV from the beginning of the encrypted text
+    $iv_size = 16; // AES block size in bytes
+    $iv = substr($encrypted_text, 0, $iv_size);
+    $encrypted_text = substr($encrypted_text, $iv_size);
 
     $decrypted = openssl_decrypt(
         $encrypted_text,
