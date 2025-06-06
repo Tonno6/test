@@ -1,4 +1,4 @@
-const cacheName = "DefaultCompany-Rainbow Stage-0.1.0";
+const cacheName = "Salmone-IA Chatbot-0.2.0";
 const contentToCache = [
     "Build/BuildSalmoneWebGL.loader.js",
     "Build/BuildSalmoneWebGL.framework.js",
